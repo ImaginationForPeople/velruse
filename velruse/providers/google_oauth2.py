@@ -155,25 +155,37 @@ class GoogleOAuth2Provider(object):
         # Retrieve profile data if scopes allow
         profile = {}
         user_url = flat_url(
-            '%s://www.googleapis.com/oauth2/v2/userinfo' % self.protocol,
+            'https://www.googleapis.com/plus/v1/people/me',
             access_token=access_token)
         r = requests.get(user_url)
 
         if r.status_code == 200:
             data = r.json()
+            email = None
+            if 'email' in data:
+                email = data['email']
+                profile['emails'] = [{'value': email, 'primary': True}]
+            elif 'emails' in data:
+                profile['emails'] = data['emails']
+                if len(profile['emails']):
+                    email = data['emails'][0]['value']
+                    profile['emails'][0]['primary'] = True
             profile['accounts'] = [{
                 'domain': self.domain,
-                'username': data['email'],
+                'username': email,
                 'userid': data['id']
             }]
             if 'name' in data:
-                profile['displayName'] = data['name']
+                profile['name'] = data['name']
+            if 'displayName' in data:
+                profile['displayName'] = data['displayName']
+            elif 'name' in data:
+                profile['displayName'] = profile['name']
             else:
-                profile['displayName'] = data['email']
-            profile['preferredUsername'] = data['email']
-            profile['emails'] = [{'value': data['email'], 'primary': True}]
+                profile['displayName'] = email
+            profile['preferredUsername'] = email
             if data.get('verified_email'):
-                profile['verifiedEmail'] = data['email']
+                profile['verifiedEmail'] = email
             if 'given_name' in data and 'family_name' in data:
                 profile['name'] = {
                     'familyName': data['family_name'],
@@ -185,10 +197,18 @@ class GoogleOAuth2Provider(object):
                 profile['photos'] = [{'value': data['picture']}]
             if 'locale' in data:
                 profile['locale'] = data['locale']
-            if 'link' in data:
+            if 'urls' in data:
+                profile['urls'] = data['urls']
+            elif 'link' in data:
                 profile['urls'] = [{'value': data['link'], 'type': 'profile'}]
+            elif 'url' in data:
+                profile['urls'] = [{'value': data['url'], 'type': 'profile'}]
             if 'hd' in data: # Hosted domain (e.g. if the user is Google apps)
                 profile['hostedDomain'] = data['hd']
+            if 'language' in data:
+                profile['language'] = data['language']
+            if 'verified' in data:
+                profile['verified'] = data['verified']
 
         cred = {'oauthAccessToken': access_token,
                 'oauthRefreshToken': refresh_token}
