@@ -129,6 +129,7 @@ class FacebookProvider(object):
                 r.status_code, r.content))
         fb_profile = r.json()
         profile = extract_fb_data(fb_profile)
+        profile['access_token'] = access_token
 
         cred = {'oauthAccessToken': access_token}
         return FacebookAuthenticationComplete(profile=profile,
@@ -152,8 +153,12 @@ def extract_fb_data(data):
 
     profile = {
         'accounts': [{'domain': 'facebook.com', 'userid': data['id']}],
-        'displayName': data['name'],
-        'preferredUsername': nick or data['name'],
+        # Known bug on Facebook: All name fields will not be returned by
+        # when user is a test user
+        # http://stackoverflow.com/questions/8379768/facebook-test-user-graph-api-does-not-return-first-name-and-last-name
+        # Fallback on using a blank name
+        'displayName': data.get('name', ''),
+        'preferredUsername': nick or data.get('name', ''),
     }
     gender = data.get('gender')
     if gender:
@@ -185,7 +190,7 @@ def extract_fb_data(data):
         part = data.get(key)
         if part:
             name[val] = part
-    name['formatted'] = data['name']
+    name['formatted'] = data.get('name', '')
 
     profile['name'] = name
 
